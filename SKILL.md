@@ -42,17 +42,28 @@ agentcad --help   # Read this — it is your complete operational briefing
    ```
    Check `volume`, `dimensions`, `is_valid` in the response.
 
-3. **Run for real** with preview and/or renders:
+3. **Run for real.** Preview is on by default; add renders or exports as needed:
    ```bash
-   agentcad run script.py --output label --preview --render iso
+   agentcad run script.py --output label --render iso --export glb
    ```
+   The response includes `"preview": "v1_label/preview.png"` automatically.
+   Pass `--no-preview` only if you're iterating fast and don't need the PNG.
 
-4. **Inspect if invalid.** If `is_valid: false` or geometry looks wrong:
+4. **Show the user.** After a successful build, open the viewer in the user's
+   browser without being asked:
+   ```bash
+   agentcad view v1_label/output.glb        # if you exported GLB
+   agentcad view v1_label/output.step       # STEP works too, auto-converts
+   ```
+   This is part of every build — users expect to see the result, not be told
+   where the file lives. Do it proactively on every successful run.
+
+5. **Inspect if invalid.** If `is_valid: false` or geometry looks wrong:
    ```bash
    agentcad inspect v1_label/output.step
    ```
 
-5. **Iterate.** Fix the script, run with a new `--output` label. Use
+6. **Iterate.** Fix the script, run with a new `--output` label. Use
    `agentcad diff 1 2` to compare versions.
 
 ## Script writing rules
@@ -81,7 +92,7 @@ agentcad --help   # Read this — it is your complete operational briefing
 | `agentcad init --name NAME` | Initialize project |
 | `agentcad run SCRIPT --output LABEL` | Execute script, produce STEP + metrics |
 | `agentcad run ... --dry-run` | Metrics only, no version consumed |
-| `agentcad run ... --preview` | Quick 256x256 iso PNG |
+| `agentcad run ... --no-preview` | Suppress preview (on by default) |
 | `agentcad run ... --render iso,front` | PNG views |
 | `agentcad run ... --export stl,glb` | Mesh export |
 | `agentcad run ... --params k=v,k=v` | Override script parameters |
@@ -91,7 +102,7 @@ agentcad --help   # Read this — it is your complete operational briefing
 | `agentcad diff REF1 REF2` | Compare versions |
 | `agentcad context` | Project state |
 | `agentcad docs [SECTION]` | Deep-dive docs (16 sections) |
-| `agentcad view FILE` | Open GLB/STEP in browser |
+| `agentcad view FILE` | **Run this after every successful build** — opens GLB/STEP in the user's browser |
 
 ## Debugging playbook
 
