@@ -1,21 +1,22 @@
 ---
 name: agentcad
-description: >
-  CAD tool for AI agents. Use when the user asks you to design, model, or build
-  a 3D object. agentcad executes CadQuery Python scripts and produces STEP files,
-  PNG renders, mesh exports (STL/GLB/OBJ), and geometric metrics.
-version: 0.1.5
+description: 'CAD tool for AI agents. Use when the user asks you to design, model,
+  or build a 3D object. agentcad executes CadQuery Python scripts and produces STEP
+  files, PNG renders, mesh exports (STL/GLB/OBJ), and geometric metrics.
+
+  '
 compatibility: Requires Python 3.10-3.12 and agentcad installed (pip install agentcad).
 allowed-tools: Bash(agentcad:*)
+version: 0.1.5
 metadata:
   openclaw:
     requires:
       bins:
-        - agentcad
+      - agentcad
       anyBins:
-        - python3.12
-        - python3.11
-        - python3.10
+      - python3.12
+      - python3.11
+      - python3.10
 ---
 
 # agentcad — CAD tool for AI agents
