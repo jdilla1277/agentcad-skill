@@ -2,7 +2,7 @@
 
 The **agent skill manifest** for [agentcad](https://agentcad.dev) — a CLI-based CAD tool for AI agents.
 
-This repo is the public entry point for agent skill marketplaces ([ClawHub](https://clawhub.ai/), [skills.sh](https://skills.sh)). It contains only the `SKILL.md` manifest — the agentcad CLI itself lives at its own (currently private) repository and ships via PyPI.
+This repo is the public entry point for agent skill marketplaces ([ClawHub](https://clawhub.ai/), [skills.sh](https://skills.sh)). It contains only the `SKILL.md` manifest — the agentcad CLI itself lives at [jdilla1277/agentcad](https://github.com/jdilla1277/agentcad) and ships via PyPI.
 
 ## Install
 
@@ -15,7 +15,7 @@ npx skills add jdilla1277/agentcad-skill
 ### ClawHub (OpenClaw)
 
 ```bash
-clawhub package install jdilla1277/agentcad-skill
+clawhub install jdilla1277/agentcad
 ```
 
 ### Manually (Claude Code)
@@ -49,10 +49,10 @@ See [agentcad.dev](https://agentcad.dev) for the full pitch and live gallery.
 
 The skill manifest in this repo is licensed under Apache-2.0.
 
-The agentcad CLI itself is licensed under [BSL-1.1](https://mariadb.com/bsl11/) — free for all use except offering agentcad as a competing hosted service. Converts to Apache-2.0 after four years per release.
+The agentcad CLI itself is open source under [Apache-2.0](https://github.com/jdilla1277/agentcad/blob/main/LICENSE).
 
 ## Source
 
-- CLI source: private repo, distributed via [PyPI](https://pypi.org/project/agentcad/).
-- Skill manifest: this repo. Auto-synced from the private CLI repo on each release.
+- CLI source: [github.com/jdilla1277/agentcad](https://github.com/jdilla1277/agentcad), distributed via [PyPI](https://pypi.org/project/agentcad/).
+- Skill manifest: this repo. Generated from the public CLI repo on each release.
 - Feedback / issues: run `agentcad feedback "your message"` from inside a project, or file an issue here.
