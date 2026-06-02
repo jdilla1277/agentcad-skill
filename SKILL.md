@@ -7,7 +7,7 @@ description: 'CAD tool for AI agents. Use when the user asks you to design, mode
   '
 compatibility: Requires Python 3.10-3.12 and agentcad installed (pip install agentcad).
 allowed-tools: Bash(agentcad:*)
-version: 0.2.2
+version: 0.2.3
 metadata:
   openclaw:
     requires:
