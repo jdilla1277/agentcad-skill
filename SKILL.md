@@ -1,13 +1,13 @@
 ---
 name: agentcad
 description: 'CAD tool for AI agents. Use when the user asks you to design, model,
-  or build a 3D object. agentcad executes build123d or CadQuery Python scripts and
-  produces STEP files, PNG renders, mesh exports (STL/GLB/OBJ), and geometric metrics.
+  or build a 3D object. agentcad executes build123d Python scripts and produces STEP
+  files, PNG renders, mesh exports (STL/GLB/OBJ), and geometric metrics.
 
   '
 compatibility: Requires Python 3.10-3.12 and agentcad installed (pip install agentcad).
 allowed-tools: Bash(agentcad:*)
-version: 0.4.0
+version: 0.4.1
 metadata:
   openclaw:
     requires:
@@ -21,14 +21,14 @@ metadata:
 
 # agentcad — CAD tool for AI agents
 
-You have access to `agentcad`, a CLI that turns build123d or CadQuery Python scripts into
-3D geometry. All output is JSON. Every command returns `"command"` and `"status"` keys.
+You have access to `agentcad`, a CLI that turns build123d Python scripts into 3D
+geometry. All output is JSON. Every command returns `"command"` and `"status"` keys.
 
 ## First-time setup
 
 ```bash
 agentcad init --name <project_name>
-agentcad --help   # Read this — it is your complete operational briefing
+agentcad --help   # Read the built-in how-to guide and command reference
 ```
 
 ## Core workflow
@@ -47,23 +47,61 @@ agentcad --help   # Read this — it is your complete operational briefing
    ```bash
    agentcad run script.py --output label
    ```
-   Every successful run produces (paths in the JSON response):
+   A normal successful iteration can produce (paths in the JSON response):
    - `preview.png` — 4-view composite (front, right, top, iso). **Read this**
      to confirm the part looks right before iterating. One image, all 4 angles.
    - `diff.side_by_side` — side-by-side PNG vs the most recent successful prior
-     version. **Read this** when iterating to see what your change did.
+     version, when one exists and automatic diff is enabled. **Read this** when
+     iterating to see what your change did.
    - `diff.overlay` — tinted (green prev, red this) overlay for subtle shifts.
      Read only if side-by-side didn't resolve the question.
-   - `viewer.html` — interactive 3D viewer for the user (humans only; you can't
-     render HTML). Mention it to the user so they open it.
+   - `viewer.html` — interactive 3D review viewer for the user unless viewer
+     artifacts are disabled (humans only;
+     you can't render HTML). It opens automatically after a successful run.
+     From v2, A=previous and B=current are already loaded with synchronized
+     A/B, side-by-side, overlay, diff-image, and Parts-tab change review.
 
    Pass `--no-preview` only for tight parametric sweeps where latency matters.
+   Pass `--no-view` only when browser launch would disrupt an unattended or
+   high-volume run.
 
-4. **Show the user.** After a successful build, open the interactive viewer:
-   ```bash
-   agentcad view v1_label/viewer.html   # or output.step / output.glb
-   ```
-   Users expect to see the result in a browser. Do this every run, unprompted.
+   For a core-only iteration, pass
+   `--no-preview --no-diff --no-view`. This writes `output.step`, the saved
+   script, `meta.json` (including metrics), and explicitly requested exports
+   without generating previews, automatic comparisons, viewer assets, or
+   opening a browser. You can still run an explicit
+   `agentcad diff OLD NEW` later.
+
+   When a comparison is slow or incomplete, read `comparison_phases` in the
+   JSON response. `source_loading`, `comparison_rendering`,
+   `projection_comparison`, `exact_3d_comparison`,
+   `approximate_3d_comparison`, `difference_artifact_export`, and
+   `viewer_generation` each report a status
+   and, when attempted, `duration_ms`. The largest duration identifies the
+   expensive stage; a failed exact phase does not erase a successful projection.
+   Exact 3D work has a 30-second default worker budget. Set
+   `AGENTCAD_DIFF_TIMEOUT_S=N` to override it (`0` disables the dedicated limit
+   for diagnostics). A timeout leaves the core version and projection usable,
+   then runs a bounded voxel fallback. Approximate results report
+   `method=approximate_voxel_volume`, `resolution_mm`, and a non-strict
+   `error_estimate`; its `absolute_volume` values are heuristic errors, not
+   measurements. `exact_attempt` retains the exact failure. Use
+   `AGENTCAD_APPROX_DIFF_TIMEOUT_S` and `AGENTCAD_APPROX_RESOLUTION_MM` to tune
+   the fallback. If exact volumes are still needed, run
+   `agentcad diff OLD NEW` with a larger budget; do not rerun the original CAD
+   command and create a duplicate version.
+
+   Daemon-routed commands may run beyond 30 seconds. Progress heartbeats appear
+   on stderr while stdout stays reserved for the final JSON response, and the
+   submitted command is never automatically retried. If a silent or lost daemon
+   returns `outcome: "unknown"` and `retry_safe: false`, inspect `agentcad
+   context`, existing outputs, and `agentcad daemon status` before retrying; the
+   original command may already have completed.
+
+4. **Review with the user.** The generated viewer opens automatically. On v2+
+   start with its previous/current comparison, then use A/B, Overlay, and Parts
+   without selecting files manually. Use `agentcad view old.step new.step` only
+   for an explicit non-adjacent comparison.
 
 5. **Inspect if invalid.** If `is_valid: false` or geometry looks wrong:
    ```bash
@@ -102,6 +140,17 @@ agentcad --help   # Read this — it is your complete operational briefing
   `show_object`, `load_step`, `pick_face`, `pick_edge`, `fillet_edges`,
   `chamfer_edges`, `shell_faces`, `cut_pocket`, `boss`, `split_by_plane`,
   `replace_face`, `annular_boss`, and `raise_annulus`.
+- For imported STEP/BREP edits, `load_step(path)` returns a build123d `Part`:
+  ```python
+  base = load_step("v1_vendor/output.step")
+  solids = base.solids()
+  faces = base.faces()
+  edges = base.edges()
+  bounds = base.bounding_box()
+  ```
+  Use `agentcad measure` and `agentcad inspect` for read-only discovery; use
+  the loaded `Part` in a script when changing geometry. See
+  `agentcad docs editing` for the complete edit workflow.
 - For imported STEP annular edits, use the non-fuse workflow:
   ```python
   raw = load_step_shape("v1_vendor/output.step")
@@ -109,20 +158,9 @@ agentcad --help   # Read this — it is your complete operational briefing
                          outer_diameter=80, height=7, z=5)
   show_object(Compound(result))
   ```
-- CadQuery remains supported. Use `import cadquery as cq`, initialize with
-  `agentcad init --runtime cadquery`, or pass `--runtime cadquery`.
-- CadQuery helper paths operate on `TopoDS_Shape`. Bridge with `.val().wrapped`:
-  ```python
-  import cadquery as cq
-  part = cq.Workplane('XY').box(10, 20, 5).val().wrapped
-  moved = translate(part, 50, 0, 0)
-  ```
-- To show helper output:
-  ```python
-  import cadquery as cq
-  show_object(cq.Workplane('XY').newObject([cq.Shape.cast(topo_shape)]))
-  ```
 - For OCP internals (`gp_Pnt`, `BRepPrimAPI`, etc.), import manually.
+- CadQuery compatibility remains available for existing projects. See
+  `agentcad docs runtimes` for that separate workflow.
 
 ## Key commands
 
@@ -132,6 +170,8 @@ agentcad --help   # Read this — it is your complete operational briefing
 | `agentcad run SCRIPT --output LABEL` | Execute script, produce STEP + metrics |
 | `agentcad run ... --dry-run` | Metrics only, no version consumed |
 | `agentcad run ... --no-preview` | Suppress preview (on by default) |
+| `agentcad run ... --no-diff` | Suppress automatic prior-version comparison |
+| `agentcad run ... --no-view` | Suppress automatic browser review |
 | `agentcad run ... --render iso,front` | PNG views |
 | `agentcad run ... --export stl,glb` | Mesh export |
 | `agentcad run ... --params k=v,k=v` | Override script parameters |
@@ -143,9 +183,11 @@ agentcad --help   # Read this — it is your complete operational briefing
 | `agentcad parts list REF` | List parts captured for a version |
 | `agentcad parts show REF ID` | Show one versioned part by stable id |
 | `agentcad diff REF1 REF2` | Compare versions |
-| `agentcad context` | Project state |
-| `agentcad docs [SECTION]` | Deep-dive docs (17 sections) |
-| `agentcad view FILE` | **Run this after every successful build** — opens GLB/STEP in the user's browser |
+| `agentcad context` | Project state and interrupted-version recovery candidates |
+| `agentcad recover VERSION_DIR` | Validate and reconcile interrupted history without deleting files |
+| `agentcad docs [SECTION]` | Runtime-aware built-in documentation |
+| `agentcad instructions install` | Record a short project note so future agents read `agentcad --help` |
+| `agentcad view FILE [FILE_B]` | Open one model or an explicit synchronized A/B comparison |
 
 ## Debugging playbook
 
@@ -165,8 +207,8 @@ agentcad --help   # Read this — it is your complete operational briefing
 
 - **Build at origin, then position:** Create geometry at origin, use `translate()`
   and `rotate()` to place it.
-- **Compound vs Union:** `makeCompound()` for assemblies (parts stay separate),
-  `.union()` for boolean fuse into one solid.
+- **Compound vs fuse:** `Compound([...])` keeps assembly parts separate; use
+  build123d's `+` operator to boolean-fuse solids.
 - **Parametric scripts:** Top-level variable assignments become overridable via
   `--params`. Use this for iteration.
 - **Named parts:** `show_object(shape, id="wheel_left", name="Left wheel",
