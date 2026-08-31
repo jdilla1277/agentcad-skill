@@ -39,22 +39,24 @@ agentcad --help   # Read the built-in how-to guide and command reference
 
 2. **Dry-run first** to check metrics without consuming a version:
    ```bash
-   agentcad run script.py --output test --dry-run
+   agentcad run script.py --label test --dry-run
    ```
    Check `volume`, `dimensions`, `is_valid` in the response.
 
 3. **Run for real.** Visual feedback is on by default:
    ```bash
-   agentcad run script.py --output label
+   agentcad run script.py --label label
    ```
    A normal successful iteration can produce (paths in the JSON response):
-   - `preview.png` — 4-view composite (front, right, top, iso). **Read this**
-     to confirm the part looks right before iterating. One image, all 4 angles.
+   - `preview.png` — balanced top, bottom, upper-iso, and lower-iso composite.
+     **Read this** to confirm the part looks right before iterating. The lower
+     views expose geometry that a top view can hide.
    - `diff.side_by_side` — side-by-side PNG vs the most recent successful prior
      version, when one exists and automatic diff is enabled. **Read this** when
      iterating to see what your change did.
-   - `diff.overlay` — tinted (green prev, red this) overlay for subtle shifts.
-     Read only if side-by-side didn't resolve the question.
+   - `diff.overlay` — centered 2D visual-overlap map (coincident gray,
+     reference-only blue, candidate-only orange). It helps locate silhouette
+     changes but does not prove physical correctness or shared 3D volume.
    - `viewer.html` — interactive 3D review viewer for the user unless viewer
      artifacts are disabled (humans only;
      you can't render HTML). It opens automatically after a successful run.
@@ -129,7 +131,7 @@ agentcad --help   # Read the built-in how-to guide and command reference
    comparison ran; `passed` is the actual spec-check result. If you include
    `axis`, copy it from `agentcad measure`'s `cylindrical_features[].axis`.
 
-8. **Iterate.** Fix the script, run with a new `--output` label. Use
+8. **Iterate.** Fix the script, run with a new `--label` value. Use
    `agentcad diff 1 2` to compare versions.
 
 ## Script writing rules
@@ -139,7 +141,8 @@ agentcad --help   # Read the built-in how-to guide and command reference
   build123d primitives like `Box`, `Cylinder`, `Sphere`, `Plane`, plus
   `show_object`, `load_step`, `pick_face`, `pick_edge`, `fillet_edges`,
   `chamfer_edges`, `shell_faces`, `cut_pocket`, `boss`, `split_by_plane`,
-  `replace_face`, `annular_boss`, and `raise_annulus`.
+  `replace_face`, `copy_shape`, `safe_cut`, `safe_intersection`, `safe_fuse`,
+  `translate`, `rotate`, `annular_boss`, and `raise_annulus`.
 - For imported STEP/BREP edits, `load_step(path)` returns a build123d `Part`:
   ```python
   base = load_step("v1_vendor/output.step")
@@ -151,6 +154,19 @@ agentcad --help   # Read the built-in how-to guide and command reference
   Use `agentcad measure` and `agentcad inspect` for read-only discovery; use
   the loaded `Part` in a script when changing geometry. See
   `agentcad docs editing` for the complete edit workflow.
+- When repeating an imported feature, use the pre-injected `rotate()` or
+  `translate()` helper on its raw shape. These helpers make an independent
+  geometry copy before moving it, preventing shared topology from corrupting
+  later Boolean results:
+  ```python
+  blade = load_step_shape("blade.step")
+  blade_72 = rotate(blade, "Z", 72)
+  ```
+  Use `copy_shape(blade)` when an independent, untransformed copy is needed.
+- For imported geometry Booleans, use `safe_cut(source, *tools)`,
+  `safe_intersection(left, right)`, and `safe_fuse(source, *tools)`. They copy
+  every input, run all tools together, validate the output, and reject
+  physically impossible volume changes instead of returning them silently.
 - For imported STEP annular edits, use the non-fuse workflow:
   ```python
   raw = load_step_shape("v1_vendor/output.step")
@@ -167,7 +183,7 @@ agentcad --help   # Read the built-in how-to guide and command reference
 | Command | Purpose |
 |---------|---------|
 | `agentcad init --name NAME` | Initialize project |
-| `agentcad run SCRIPT --output LABEL` | Execute script, produce STEP + metrics |
+| `agentcad run SCRIPT --label LABEL` | Execute script, produce STEP + metrics |
 | `agentcad run ... --dry-run` | Metrics only, no version consumed |
 | `agentcad run ... --no-preview` | Suppress preview (on by default) |
 | `agentcad run ... --no-diff` | Suppress automatic prior-version comparison |
@@ -179,7 +195,7 @@ agentcad --help   # Read the built-in how-to guide and command reference
 | `agentcad export STEP --format stl,glb` | Post-hoc mesh export |
 | `agentcad measure STEP` | Dimensional report (overall metrics + feature sizes) |
 | `agentcad check-spec STEP spec.json` | Pass/fail checklist against intended cylindrical features |
-| `agentcad inspect STEP` | Topology report (validity, free edges) |
+| `agentcad inspect STEP` | Bounded topology report with observable validation phases |
 | `agentcad parts list REF` | List parts captured for a version |
 | `agentcad parts show REF ID` | Show one versioned part by stable id |
 | `agentcad diff REF1 REF2` | Compare versions |
@@ -188,6 +204,9 @@ agentcad --help   # Read the built-in how-to guide and command reference
 | `agentcad docs [SECTION]` | Runtime-aware built-in documentation |
 | `agentcad instructions install` | Record a short project note so future agents read `agentcad --help` |
 | `agentcad view FILE [FILE_B]` | Open one model or an explicit synchronized A/B comparison |
+
+`--label` names a version; read the generated file from `outputs.step`.
+`--output` remains a deprecated compatibility alias and is not a path option.
 
 ## Debugging playbook
 
@@ -202,13 +221,22 @@ agentcad --help   # Read the built-in how-to guide and command reference
 8. **Hollow shape?** `free_edge_count > 0` means open shell.
 9. **Complex profiles (gears, splines)?** Use subtractive construction — cut from
    a blank cylinder/box instead of building up. See `agentcad docs patterns`.
+10. **A run failed?** Trust `artifact_created: false` and `outputs.step: null`;
+    fix the script and execute the returned `next_actions` command. Do not write
+    or truncate STEP text — `agentcad run` or `agentcad import` must create it
+    through the CAD kernel.
+11. **Large inspect timed out?** It is not automatically malformed. Execute the
+    returned `--validate-only` action for a structural check, or the larger-budget
+    deep retry. Configure the default with `AGENTCAD_INSPECT_TIMEOUT_S`.
 
 ## Patterns
 
 - **Build at origin, then position:** Create geometry at origin, use `translate()`
-  and `rotate()` to place it.
-- **Compound vs fuse:** `Compound([...])` keeps assembly parts separate; use
-  build123d's `+` operator to boolean-fuse solids.
+  and `rotate()` to place it. These helpers copy imported topology before
+  transforming it.
+- **Compound vs fuse:** `Compound([...])` keeps assembly parts separate. Use
+  `safe_fuse(source, *tools)` when imported solids must become one union; use
+  build123d's `+` operator for ordinary newly constructed geometry.
 - **Parametric scripts:** Top-level variable assignments become overridable via
   `--params`. Use this for iteration.
 - **Named parts:** `show_object(shape, id="wheel_left", name="Left wheel",
