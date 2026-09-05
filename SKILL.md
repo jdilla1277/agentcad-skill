@@ -7,7 +7,7 @@ description: 'CAD tool for AI agents. Use when the user asks you to design, mode
   '
 compatibility: Requires Python 3.10-3.12 and agentcad installed (pip install agentcad).
 allowed-tools: Bash(agentcad:*)
-version: 0.5.0
+version: 0.5.1
 metadata:
   openclaw:
     requires:
@@ -18,11 +18,11 @@ metadata:
       - python3.11
       - python3.10
 ---
-
 # agentcad — CAD tool for AI agents
 
 You have access to `agentcad`, a CLI that turns build123d Python scripts into 3D
-geometry. All output is JSON. Every command returns `"command"` and `"status"` keys.
+geometry. Operational commands return structured JSON with `"command"` and
+`"status"` keys. `--help` and `agentcad docs` return readable text.
 
 ## First-time setup
 
@@ -30,6 +30,9 @@ geometry. All output is JSON. Every command returns `"command"` and `"status"` k
 agentcad init --name <project_name>
 agentcad --help   # Read the built-in how-to guide and command reference
 ```
+
+If `agentcad.json` already exists, this project is already initialized — skip
+`init` and go straight to the core workflow.
 
 ## Core workflow
 
@@ -202,7 +205,7 @@ agentcad --help   # Read the built-in how-to guide and command reference
 | `agentcad context` | Project state and interrupted-version recovery candidates |
 | `agentcad recover VERSION_DIR` | Validate and reconcile interrupted history without deleting files |
 | `agentcad docs [SECTION]` | Runtime-aware built-in documentation |
-| `agentcad instructions install` | Record a short project note so future agents read `agentcad --help` |
+| `agentcad instructions install` | Refresh this guide in AGENTS.md/CLAUDE.md |
 | `agentcad view FILE [FILE_B]` | Open one model or an explicit synchronized A/B comparison |
 
 `--label` names a version; read the generated file from `outputs.step`.
