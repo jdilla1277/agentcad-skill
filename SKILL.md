@@ -28,8 +28,11 @@ geometry. Operational commands return structured JSON with `"command"` and
 
 ```bash
 agentcad init --name <project_name>
-agentcad --help   # Read the built-in how-to guide and command reference
 ```
+
+`init` creates the project and installs this guide, so nothing else is
+required before the core workflow. `agentcad --help` and `agentcad docs` hold
+the full command reference when you need more than this guide.
 
 If `agentcad.json` already exists, this project is already initialized — skip
 `init` and go straight to the core workflow.
