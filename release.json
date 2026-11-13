@@ -1,0 +1,9 @@
+{
+  "package_wheel": {
+    "filename": "agentcad-0.8.0-py3-none-any.whl",
+    "sha256": "f29b78bfafca5f896f1e5e98d5ed8144806bb65a585a8d68839e054757f64950"
+  },
+  "source_revision": "2c401c4992abc2782fc8cc62b7aeb128da7a9399",
+  "tag": "v0.8.0",
+  "version": "0.8.0"
+}
